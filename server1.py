@@ -9,7 +9,7 @@ import select
 
 HEADER_LENGHT = 10 # ---> We use this to distinguish each message, where one message ends and the next begins
 IP = "127.0.0.1"
-PORT = 8001
+PORT = 8002
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -40,13 +40,14 @@ def receive_message(client_socket):
 
         message_header = client_socket.recv(HEADER_LENGHT)
 
-        # If a client closes a connection gracefully, then a socket.close() will be issued and there will be no header.
+        # If we dont get any data, the client close the connection
         if not len(message_header):
             return False
         
-        message_lengh = int(message_header.decode("utf-8")).strip(()) # ---> Header to lenght
+        #Header to int value
+        message_lengh = int(message_header.decode("utf-8")) # ---> the decode method is used to convert a bytes object into a str (string)
         
-        # Return an object of message header and message data
+        # Return an dictionary; message header and message data
         return {'header': message_header, 'data': client_socket.recv(message_lengh) }
     
     except: # --> lets you to handle the error 
@@ -85,17 +86,19 @@ while True:
             # That gives us new socket - client socket, connected to this given client only, it's unique for that client
             # The other returned object is ip/port set
 
-            # Client should send his name right away, receive it
+            # Client should send his name right away in the client code, receive it
             user = receive_message(client_socket)
 
             # If False - client disconnected before he sent his name
             if user is False:
                 continue
 
+            #Add accepted socket to select.select() list
             sockets_list.append(client_socket)
-
+            
+            #User as adictionary where also have username and username header
             clients[client_socket] = user
-
+        
             print('Accepted new connection from {}:{}, username: {}'.format(*client_address, user['data'].decode('utf-8')))
 
 # ----------------------------------------------------------------------------------------------------------------------------
@@ -112,8 +115,8 @@ while True:
                 # Remove from list for socket.socket()
                 sockets_list.remove(notified_socket)
 
-                # Remove from our list of users
-                del clients[notified_socket]
+                # Remove from our list of users, the del keyword is used to delete objects
+                del clients[notified_socket] 
 
                 continue
 
@@ -127,4 +130,16 @@ while True:
 
                 # But don't sent it to sender
                 if client_socket != notified_socket:
+                    # Send user and meesage (both with ther headers)
+                    # We are reusing here message header sent by sender, and saved username header send by user when he connected
                     client_socket.send(user['header'] + user['data'] + message['header'] + message['data'])
+
+# ----------------------------------------------------------------------------------------------------------------------------
+# Here we handle some socket exceptions just in case
+    for notified_socket in exception_sockets:
+
+        # Remove from list for socket.socket()
+        sockets_list.remove(notified_socket)
+
+        # Remove from our list of users
+        del clients[notified_socket]
