@@ -5,6 +5,10 @@
 
 # Mejorar la funcion de validar si el mensaje esta vacio aplicano TDD
 
+# Prueba que el cliente pueda conectarse y desconectarse correctamente del servidor.
+# Valida que los mensajes enviados por el cliente cumplan con los requisitos.
+# Simula errores desde el lado del cliente, como pérdida de conexión.
+
 import socket
 import time
 from unittest.mock import patch
@@ -46,20 +50,20 @@ def test_empty_message():
     mock_server_socket = create_server()
     mock_server_socket.listen(1)
     
-    try: 
-        client_socket = setup_connection()
-        username = 'TestUser'
-        
-        server_connection, _ = mock_server_socket.accept()
-        
-        
-        empty_message = b''
-        empty_message_header = f"{len(empty_message):<{HEADER_LENGHT}}".encode('utf-8')
-        client_socket.send(empty_message_header + empty_message)
-        
-        # message_lenght = int(empty_message_header.decode("utf-8").strip())
-        response = handle_communication()
-        
-    except:
-        print('Error en el test')
+    
+    client_socket = setup_connection()
+    username = 'TestUser'
+    
+    server_connection, _ = mock_server_socket.accept()
+    
+    
+    empty_message = b''
+    empty_message_header = f"{len(empty_message):<{HEADER_LENGHT}}".encode('utf-8')
+    client_socket.send(empty_message_header + empty_message)
+    
+    message_lenght = int(empty_message_header.decode("utf-8").strip())
+    if message_lenght == 0:
+        response = handle_communication(client_socket, username)
+    assert response is False
+    print('Mensaje vacio')
         

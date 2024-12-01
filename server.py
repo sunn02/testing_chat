@@ -21,18 +21,6 @@ clients = {} # ---> We use a dictionary where the clients sockets will be the ke
 print(f'Listening for connections on {IP}:{PORT}')
 
 
-server_running = True
-
-def stop_server():
-    global server_running
-    server_running = False
-    
-def verify_message(message_data, message_length):
-    if message_length == 0 or not message_data:
-        print('No se recibieron datos')
-        return False
-    return True
-    
 def receive_message(client_socket):    
     try: 
         message_header = client_socket.recv(HEADER_LENGHT)
@@ -41,15 +29,19 @@ def receive_message(client_socket):
             return False
         
         message_length = int(message_header.decode("utf-8").strip())
+        
+        if message_length == 0:
+            return False
+        
         message_data = client_socket.recv(message_length)
         
-        if not verify_message(message_data, message_length):
+        if not message_data:
             return False
         
         return {'header': message_header, 'data': message_data }
     
-    except (socket.error, Exception) as e: 
-        print(f"Error al recibir mensaje: {e}") # Something went wrong like empty message or client exited abruptly.
+    except: 
+        # Something went wrong like empty message or client exited abruptly.
         return False
 
 def broadcast_message(message, notified_socket):
@@ -62,8 +54,8 @@ def broadcast_message(message, notified_socket):
                 print(f"Error sending message to {client_socket}: {e}")                                
 
 def chat_server_loop():
-    global server_running
-    while server_running:
+    while True:
+        
         read_sockets, _, exception_sockets = select.select(sockets_list, [], sockets_list)
         
         for notified_socket in read_sockets:
@@ -97,7 +89,6 @@ def chat_server_loop():
         for notified_socket in exception_sockets:
             sockets_list.remove(notified_socket)
             del clients[notified_socket]
-    server_socket.close()
             
 if __name__ == "__main__":
     chat_server_loop()

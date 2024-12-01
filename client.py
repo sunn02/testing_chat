@@ -21,7 +21,6 @@ def send_message(client_socket, message):
 
     client_socket.send(message_header + message)
 
-
 def handle_communication(client_socket, username):
     try:
         while True:
