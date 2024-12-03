@@ -2,7 +2,6 @@
 # Manejar errores como la desconexion repentina del servidor, como mostrar un mensaje o reconectar
 # Recibir los mensajes de error en caso de que el serviodr rechaze el mensaje debido a ciertas validaciones si 
 # esta vacio o es muy largo
-
 # Mejorar la funcion de validar si el mensaje esta vacio aplicano TDD
 
 # Prueba que el cliente pueda conectarse y desconectarse correctamente del servidor.
@@ -18,6 +17,13 @@ import pytest
 from tests.test_utils import create_server
 
 HEADER_LENGHT = 10
+
+def 
+
+
+
+
+
 
 
 def test_input():

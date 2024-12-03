@@ -1,0 +1,105 @@
+
+
+#Funcion para manejar conexiones y desconexiones de clientes
+#Funcion para manejar perdida de conexion o desconexion inesperada y envio fallido del mensaje.
+# Casos positivos: Manejar mensajes que cumplan con ciertas condiciones para ser enviado
+# Casos negativos: Si el mensaje esta vacio, rechazar el mensaje y devolver el error
+
+# Escribe pruebas unitarias e integración enfocadas en el servidor:
+# Verifica que el servidor pueda aceptar múltiples conexiones.
+# Prueba el manejo de mensajes inválidos o vacíos desde un cliente.
+# Simula clientes que se desconectan mientras otros envían mensajes.
+# Asegura que los mensajes llegan en el orden correcto y no se duplican.
+
+import time
+import threading
+from client import Client
+from server import Server
+
+import time
+import threading
+from client import Client
+from server import Server
+
+def test_clients_connections():
+    # Testing server-client communication
+    server = Server()
+    server_thread = threading.Thread(target=server.start, daemon=True)
+    server_thread.start()
+
+    time.sleep(1)  # Give server time to start
+
+    cliente1 = Client("User1")
+    cliente2 = Client("User2")
+    
+    # Connect the clients
+    cliente1.connect()
+    cliente2.connect()
+
+    # Wait for connections to be established
+    start_time = time.time()
+    while server.connected_clients() < 2:
+        if time.time() - start_time > 10:
+            server.stop()
+            raise AssertionError("Server couldn't handle multiple connections within the expected time.")
+
+    cliente1.send_message("Hello from User1")
+    time.sleep(1)  # Allow time for server to process
+
+    received_message = cliente2.receive_message()
+    assert received_message == "Hello from User1", "Message broadcasting failed."
+
+    cliente1.disconnect()
+    cliente2.disconnect()
+    server.stop()
+
+if __name__ == "__main__":
+    test_clients_connections()
+
+
+    
+    
+#Caso positivo, mensaje valido
+# def test_valid_message():
+#     mock_client_socket = create_socket()
+    
+#     message = 'Hola Servidor'.encode('utf-8')
+
+#     message_header = f"{len(message):<{HEADER_LENGHT}}".encode('utf-8')
+#     mock_client_socket.send(message_header + message)
+    
+#     time.sleep(0.5)
+#     response = receive_message(mock_client_socket)
+#     assert response is not False, 'El mensaje fue recibido correctamente'
+#     mock_client_socket.close()
+
+#Caso negativo, mensaje vacio
+# def test_message_empty():
+#     mock_client_socket = create_socket()
+        
+#     empty_message = b''
+#     empty_message_header = f"{len(empty_message):<{HEADER_LENGHT}}".encode('utf-8')
+#     mock_client_socket.send(empty_message_header + empty_message)
+   
+#     message_lenght = int(empty_message_header.decode("utf-8").strip())
+    
+#     assert message_lenght == 0
+#     # response = receive_message(mock_client_socket)
+#     # assert response is False, 'El mensaje fue rechazado'
+#     mock_client_socket.close()
+    
+# def test_simulate_client_connection():
+#     mock_client_socket = create_socket()
+    
+#     assert mock_client_socket
+#     mock_client_socket.close()
+ 
+# def test_simulate_client_disconection():
+#     mock_client_socket = create_socket()
+    
+#     mock_client_socket.close()
+#     time.sleep(1)
+#     response = receive_message(mock_client_socket)
+
+#     assert response is False
+    

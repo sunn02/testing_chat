@@ -1,94 +1,93 @@
 import socket
-import select
+import threading
 
-## We use select to handle multiple connections; where our server handle many clients
-## The client needs to be able to send messages to the server and then the server needs to distribute them 
-## to the rest of the connected clients.
-
-
-HEADER_LENGHT = 10 
+HEADER_LENGTH = 10
 IP = "127.0.0.1"
 PORT = 1234
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server_socket.bind((IP, PORT))
-server_socket.listen()
 
+class Server():
+    def __init__(self):
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((IP, PORT))
+        self.server_socket.listen()
 
-sockets_list = [server_socket] # ---> List of sockets for select to keep track of, sockets from which we expect to read
-clients = {} # ---> We use a dictionary where the clients sockets will be the key and then user data the value
+        self.clients = []  # Lista para almacenar los sockets de los clientes
+        self.running = True
 
-print(f'Listening for connections on {IP}:{PORT}')
+    def receive_message(self, client_socket):
+        try:
+            message_header = client_socket.recv(HEADER_LENGTH)
+            if not len(message_header):
+                return False
 
+            message_length = int(message_header.decode("utf-8").strip())
+            message_data = client_socket.recv(message_length)
 
-def receive_message(client_socket):    
-    try: 
-        message_header = client_socket.recv(HEADER_LENGHT)
-        # If we dont get any data, the client close the connection
-        if not len(message_header):
+            if not message_data:
+                return False
+            return message_data.decode('utf-8')
+
+        except Exception as e:
+            print(f"Error receiving message: {e}")
             return False
-        
-        message_length = int(message_header.decode("utf-8").strip())
-        
-        if message_length == 0:
-            return False
-        
-        message_data = client_socket.recv(message_length)
-        
-        if not message_data:
-            return False
-        
-        return {'header': message_header, 'data': message_data }
+
+    def broadcast_message(self, message, client_socket):
+        for client in self.clients:
+            if client != client_socket:
+                try:
+                    client.send(message)
+                except Exception as e:
+                    print(f"Error broadcasting message: {e}")
     
-    except: 
-        # Something went wrong like empty message or client exited abruptly.
-        return False
+    def debug_connected_clients(self):
+        print(f"Connected clients: {len(self.clients)}")
 
-def broadcast_message(message, notified_socket):
-    # Iterate over connected clients and broadcast message
-    for client_socket in clients:
-        if client_socket != notified_socket:
+
+    def handle_client(self, client_socket):
+        self.clients.append(client_socket)
+        print("New client connected.")
+        try:
+            while self.running:
+                message_header = client_socket.recv(HEADER_LENGTH)
+                if not message_header:
+                    print("Client disconnected.")
+                    break
+
+                message_length = int(message_header.decode("utf-8").strip())
+                message = client_socket.recv(message_length).decode("utf-8")
+                print(f"Received message: {message}")
+        except Exception as e:
+            print(f"Error receiving message: {e}")
+        finally:
+            self.clients.remove(client_socket)
+            client_socket.close()
+
+
+    def start(self):
+        print("Server started, waiting for connections...")
+        while self.running:
             try:
-                client_socket.send(message)
-            except socket.error as e:
-                print(f"Error sending message to {client_socket}: {e}")                                
+                client_socket, client_address = self.server_socket.accept()
+                self.clients.append(client_socket)
+                print(f"New connection from {client_address}")
 
-def chat_server_loop():
-    while True:
-        
-        read_sockets, _, exception_sockets = select.select(sockets_list, [], sockets_list)
-        
-        for notified_socket in read_sockets:
-            if notified_socket == server_socket:
-                client_socket, client_address = server_socket.accept()
+                # Start a new thread to handle the client
+                threading.Thread(target=self.handle_client, args=(client_socket,), daemon=True).start()
 
-                user = receive_message(client_socket)
+            except Exception as e:
+                print(f"Server error: {e}")
+                break
 
-                # If False - client disconnected before he sent his name
-                if user is not False:
-                    sockets_list.append(client_socket)
-                    clients[client_socket] = user
-                    
-                    print('Accepted new connection from {}:{}, username: {}'.format(*client_address, user['data'].decode('utf-8')))
-            else:
-                message = receive_message(notified_socket)
-                
-                if message is False:
-                    print('Closed connection from: {}'.format(clients[notified_socket]['data'].decode('utf-8')))
-                    sockets_list.remove(notified_socket)
+    def stop(self):
+        self.running = False
+        self.server_socket.close()
+        print("Server stopped.")
 
-                    del clients[notified_socket] 
-                    continue
-                
-
-                user = clients[notified_socket]
-
-                print(f'Received message from {user["data"].decode("utf-8")}: {message["data"].decode("utf-8")}')
-
-                
-        for notified_socket in exception_sockets:
-            sockets_list.remove(notified_socket)
-            del clients[notified_socket]
-            
 if __name__ == "__main__":
-    chat_server_loop()
+    server = Server()
+    server_thread = threading.Thread(target=server.start, daemon=True)
+    server_thread.start()
+
+    input("Press Enter to stop the server...\n")
+    server.stop()
