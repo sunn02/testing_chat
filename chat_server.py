@@ -3,7 +3,7 @@ import threading
 
 HEADER_LENGTH = 10
 IP = "127.0.0.1"
-PORT = 1234
+PORT = 1236
 
 class Server():
     def __init__(self):
@@ -12,8 +12,9 @@ class Server():
         self.server_socket.bind((IP, PORT))
         self.server_socket.listen()
 
-        self.clients = []  # Lista para almacenar los sockets de los clientes
+        self.clients = []  
         self.running = True
+        print("Server initialized.")
 
     def receive_message(self, client_socket):
         try:
@@ -41,11 +42,11 @@ class Server():
                     print(f"Error broadcasting message: {e}")
     
     def debug_connected_clients(self):
-        print(f"Connected clients: {len(self.clients)}")
+        return len(self.clients) if self.clients is not None else 0
+
 
 
     def handle_client(self, client_socket):
-        self.clients.append(client_socket)
         print("New client connected.")
         try:
             while self.running:
@@ -62,6 +63,7 @@ class Server():
         finally:
             self.clients.remove(client_socket)
             client_socket.close()
+            self.debug_connected_clients()
 
 
     def start(self):
@@ -71,6 +73,8 @@ class Server():
                 client_socket, client_address = self.server_socket.accept()
                 self.clients.append(client_socket)
                 print(f"New connection from {client_address}")
+                self.debug_connected_clients()
+                print(f"Total connected clients: {self.debug_connected_clients()}")
 
                 # Start a new thread to handle the client
                 threading.Thread(target=self.handle_client, args=(client_socket,), daemon=True).start()

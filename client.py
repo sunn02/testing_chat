@@ -2,7 +2,7 @@ import socket
 
 HEADER_LENGTH = 10
 IP = "127.0.0.1"
-PORT = 1234
+PORT = 1235
 
 class Client():
     def __init__(self, username):

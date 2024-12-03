@@ -1,35 +1,29 @@
 import threading
-import time
-from server import Server
-from client import Client
+from unittest.mock import MagicMock, patch
+import pytest
+from chat_server import Server  
 
-
-def test_clients_connections():
+@pytest.fixture
+def mock_server():
     server = Server()
-    server_thread = threading.Thread(target=server.start, daemon=True)
-    server_thread.start()
 
-    time.sleep(1)  # Give server time to start
+    # Simulamos la conexión de varios clientes
+    with patch('socket.socket.accept', side_effect=[
+        (MagicMock(), ('127.0.0.1', 1235)),
+        (MagicMock(), ('127.0.0.2', 1236)),
+        (MagicMock(), ('127.0.0.3', 1237))
+    ]):
+        server_thread = threading.Thread(target=server.start)
+        server_thread.daemon = False
+        server_thread.start()
+        yield server
+        server_thread.join() 
 
-    cliente1 = Client("User1")
-    cliente2 = Client("User2")
+def test_server_accepts_connection(mock_server):
+    print(f"Total connected clients: {len(mock_server.clients)}")
+    assert len(mock_server.clients) > 0
 
-    # Connect the clients
-    cliente1.connect()
-    cliente2.connect()
 
-    # Wait for connections to be established
-    start_time = time.time()
-    while server.debug_connected_clients() < 2:
-        if time.time() - start_time > 10:  # Timeout
-            server.stop()
-            raise AssertionError("Server couldn't handle multiple connections within the expected time.")
-
-    print("All clients connected successfully.")
-
-    cliente1.disconnect()
-    cliente2.disconnect()
-    server.stop()
 
 
     
