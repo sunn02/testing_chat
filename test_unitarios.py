@@ -21,84 +21,99 @@
 
 import socket
 import time
-import pytest
 
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 1236
 HEADER_LENGTH = 10
+MAX_MESSAGE_LENGTH = 50
 
 
 def create_client():
+    """
+    Crea un cliente y lo conecta al servidor.
+    """
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((SERVER_HOST, SERVER_PORT))
-    
-    username = "testUser"
-    username_header = f"{len(username):<{HEADER_LENGTH}}".encode('utf-8')
-    client_socket.send(username_header + username.encode('utf-8'))
-    
     return client_socket
 
 
-# Caso positivo: mensaje válido
-def test_valid_message():
-    mock_client_socket = create_client()
-    
-    message = 'Hola Servidor'.encode('utf-8')
-    message_header = f"{len(message):<{HEADER_LENGTH}}".encode('utf-8')
-
-    mock_client_socket.send(message_header + message)
-    
-    time.sleep(0.5)
-    response = receive_message(mock_client_socket)
-    
-    assert response is not False, 'El mensaje fue recibido correctamente'
-    mock_client_socket.close()
+def send_message(client_socket, message):
+    """
+    Envía un mensaje al servidor.
+    """
+    message_encoded = message.encode("utf-8")
+    message_header = f"{len(message_encoded):<{HEADER_LENGTH}}".encode("utf-8")
+    client_socket.send(message_header + message_encoded)
 
 
-# Caso negativo: mensaje vacío
-def test_message_empty():
-    mock_client_socket = create_client()
-    
-    empty_message = b''
-    empty_message_header = f"{len(empty_message):<{HEADER_LENGTH}}".encode('utf-8')
-
-    mock_client_socket.send(empty_message_header + empty_message)
-
-    message_length = int(empty_message_header.decode("utf-8").strip())
-    assert message_length == 0, 'La longitud del mensaje debe ser 0'
-    
-    response = receive_message(mock_client_socket)
-    assert response is False, 'El mensaje vacío debe ser rechazado'
-    mock_client_socket.close()
-
-
-# Caso negativo: mensaje demasiado largo
-def test_message_too_long():
-    mock_client_socket = create_client()
-
-    long_message = 'A' * 1000  # Suponiendo que 1000 es demasiado largo
-    long_message = long_message.encode('utf-8')
-
-    long_message_header = f"{len(long_message):<{HEADER_LENGTH}}".encode('utf-8')
-
-    mock_client_socket.send(long_message_header + long_message)
-
-    time.sleep(0.5)
-
-    response = receive_message(mock_client_socket)
-    assert response is False, 'El mensaje demasiado largo debe ser rechazado'
-    mock_client_socket.close()
-
-
-# Caso negativo: pérdida de conexión
-def test_connection_loss():
-    mock_client_socket = create_socket()
-
-    # Enviar un mensaje después de la desconexión
-    mock_client_socket.close()  # Cerramos la conexión
-    
+def receive_message(client_socket):
+    """
+    Recibe un mensaje del servidor.
+    """
     try:
-        mock_client_socket.send(b'Hola')
+        message_header = client_socket.recv(HEADER_LENGTH)
+        if not message_header:
+            return None
+        message_length = int(message_header.decode("utf-8").strip())
+        return client_socket.recv(message_length).decode("utf-8")
     except Exception as e:
-        assert str(e) == 'Socket is closed', 'El servidor debe manejar la pérdida de conexión'
+        print(f"Error receiving message: {e}")
+        return None
 
+
+def test_valid_message():
+    """
+    Prueba el envío de un mensaje válido.
+    """
+    client_socket = create_client()
+    message = "Hola Servidor"
+    send_message(client_socket, message)
+
+    time.sleep(0.5)
+    response = receive_message(client_socket)
+
+    assert response == message, "El mensaje válido no fue recibido correctamente."
+    client_socket.close()
+
+
+def test_empty_message():
+    """
+    Prueba el envío de un mensaje vacío.
+    """
+    client_socket = create_client()
+    send_message(client_socket, "")
+
+    time.sleep(0.5)
+    response = receive_message(client_socket)
+
+    assert response is None, "El mensaje vacío no debería ser aceptado."
+    client_socket.close()
+
+
+def test_message_too_long():
+    """
+    Prueba que el servidor rechaza mensajes que son demasiado largos.
+    """
+    client_socket = create_client()
+
+    long_message = "A" * (MAX_MESSAGE_LENGTH + 1)  # Mensaje más largo que el permitido
+    try:
+        send_message(client_socket, long_message)
+        assert False, "No se debería enviar un mensaje demasiado largo."
+    except ValueError as e:
+        assert "Mensaje demasiado largo" in str(e), f"El servidor maneja correctamente el mensaje largo: {str(e)}"
+
+
+
+def test_connection_loss():
+    """
+    Prueba la pérdida de conexión del cliente.
+    """
+    client_socket = create_client()
+    client_socket.close()  # Cerramos el socket
+
+    try:
+        send_message(client_socket, "Hola después de desconexión")
+        assert False, "No se debería enviar un mensaje después de la desconexión."
+    except OSError as e:
+        assert "Se intentó realizar una operación en un elemento que no es un socket" in str(e), f"El servidor maneja correctamente la pérdida de conexión: {str(e)}"
